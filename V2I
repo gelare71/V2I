@@ -1,0 +1,162 @@
+theory V2I
+begin
+
+builtins: hashing, xor
+
+rule Enrollment:
+let
+V = h(<~ltk, ~T_S, ~x>)
+RID_V = h(<~ltk, ~T_v, ~ID_v>)
+M_Infra = h(<~k_infra, ~T_infra>)
+in
+[Fr(~ltk), Fr(~T_S), Fr(~x), Fr(~ID_v), Fr(~T_v), Fr(~k_infra), Fr(~T_infra)]
+--[OnlyOnce(), Privacy(~ID_v)]->
+[!Ltk_S($S, ~ltk), !Key($S, V), !Vehicle_pesudo($Veh, RID_V), !I_state($Infra, M_Infra)]
+
+rule Init_Veh:
+[Fr(~id), !Key($S, V), !Vehicle_pesudo($Veh, RID_V)]
+--[Create($Veh, ~id), Role('Veh')]->
+[Veh_state_1($Veh, RID_V, V, $Infra)]
+
+rule Init_infra:
+[Fr(~id), !I_state($Infra, M_Infra), !Key($S, V), !Vehicle_pesudo($Veh, RID_V)]
+--[Create($Infra, ~id), Role('Infra')]->
+[I_state_1($Infra, V, RID_V, M_Infra, $Veh)]
+
+rule Reveal_Key:
+[!Key($S, V)]
+  --[Reveal_S($S)]->
+  [Out(V)]
+
+rule send_veh_1:
+let
+E = <~M_RE XOR V> XOR h(<RID_V,~t1>)
+m = <E, ~t1>
+in
+[Veh_state_1($Veh, RID_V, V, $Infra), Fr(~M_RE), Fr(~t1)]
+--[Start_V($Veh)]->
+ [Out(m), Veh_state_2($Veh, RID_V, V, ~M_RE, $Infra)]
+
+ rule recv_send_infra_1:
+ let
+ m = <E, t1>
+ M_RE_prime = <E XOR V> XOR h(<RID_V, t1>)
+ T = h(<~t2, M_Infra, RID_V>) XOR h(M_RE_prime XOR V)
+ Q = h(<M_RE_prime, h(<~t2, M_Infra, RID_V>), RID_V>)
+ SK_I = h(<RID_V, M_RE_prime, h(<~t2, M_Infra, RID_V>)>)
+ m_1 = <T, Q, ~t2>
+ in
+ [In(m), Fr(~t2), I_state_1($Infra, V, RID_V, M_Infra, $Veh)]
+ --[Start_I($Infra), Running($Infra, $Veh,<'Infra','Veh',SK_I>), Secret1(SK_I)]->
+ [Out(m_1), I_state_2($Infra, M_RE_prime, SK_I, $Veh), I_Key($Infra, h(<~t2, M_Infra, RID_V>))]
+
+ rule recv_send_veh_2:
+ let
+m_1 = <T, Q, t2>
+ Zeta = T XOR h(M_RE XOR V)
+ Q_prime = h(<M_RE, Zeta, RID_V>)
+ SK_V = h (<RID_V, M_RE, Zeta>)
+ X = h(<SK_V, ~t3>)
+ m_2 = <X, ~t3>
+ in
+ [In(m_1), Fr(~t3), Veh_state_2($Veh, RID_V, V, M_RE, $Infra), I_Key($Infra, h(<t2, M_Infra, RID_V>))]
+ --[Eq(Zeta, h(<t2, M_Infra, RID_V>)), Eq(Q, Q_prime), Secret2(SK_V), Commit($Veh, $Infra,<'Veh','Infra',SK_V>), Running($Veh, $Infra,<'Veh','Infra',SK_V>), End_V()]->
+ [Out(m_2)]
+
+ rule recv_infra_2:
+ let
+ m_3 = <X, t3>
+ X_prime = h(<SK_I, t3>)
+ in
+ [In(m_3), I_state_2($Infra, M_RE_prime, SK_I, $Veh)]
+ --[Eq(X, X_prime), Commit($Infra, $Veh, <'Infra','Veh',SK_I>), End_I()]->
+ []
+
+
+
+
+
+restriction OnlyOnce:
+"All  #i #j. OnlyOnce()@ #i & OnlyOnce()@ #j ==>  #i=#j"
+
+restriction Equality:
+"All x y #i. Eq(x, y)@ #i ==> x=y"
+
+restriction Veh_once:
+"
+    All veh #i #j. Start_V(veh) @i & Start_V(veh) @j
+        ==> #i = #j
+"
+
+restriction Infra_once:
+"
+All infra #i #j. Start_I(infra) @i & Start_I(infra) @j
+        ==> #i = #j"
+
+lemma anonymity:
+"
+All ID_v #i. Privacy(ID_v) @ i ==> not(Ex #j. K(ID_v)@j) "
+
+lemma Infra_sskey_secrecy:
+all-traces
+" All sskey #i. Secret1(sskey) @ i  ==> not(Ex #j. K(sskey)@j)| (Ex S #r. Reveal_S(S) @r  & r < i)
+"
+lemma Veh_sskey_secrecy:
+all-traces
+" All sskey #i . Secret2(sskey) @ i  ==> not(Ex #j. K(sskey)@j)|(Ex S #r. Reveal_S(S) @r  & r < i)"
+
+lemma Infra_aliveness:
+"
+All Infra Veh sskey #i. Commit(Infra,Veh,<'Infra','Veh',sskey>) @i
+  ==>
+      ( Ex id #j . Create(Veh, id) @ j )"
+
+lemma Veh_aliveness:
+"
+  All Infra Veh sskey #i. Commit(Veh, Infra,<'Veh','Infra',sskey>) @i
+        ==>
+            ( Ex id #j . Create(Infra, id) @ j )"
+
+lemma Infra_weak_agreement:
+"
+    All Infra Veh sskey1 #i. Commit(Infra,Veh,<'Infra','Veh',sskey1>) @i
+        ==> (Ex sskey2 #j. Running(Veh, Infra,<'Veh','Infra',sskey2>) @j)"
+lemma Veh_weak_agreement:
+"
+    All Veh Infra sskey1 #i. Commit(Veh,Infra,<'Veh','Infra',sskey1>) @i
+                ==> (Ex sskey2 #j. Running(Infra,Veh, <'Infra','Veh',sskey2>) @j)"
+
+lemma Infra_nonInjective_agreement:
+  "
+  All Infra Veh sskey #i. Commit(Infra,Veh, <'Infra','Veh',sskey>) @i
+                        ==> (Ex #j. Running(Veh,Infra, <'Veh','Infra',sskey>) @j)"
+
+lemma Veh_nonInjective_agreement:
+"     All  Veh Infra sskey #i. Commit(Veh, Infra, <'Veh','Infra',sskey>) @i
+        ==> (Ex #j. Running(Infra,Veh, <'Infra','Veh',sskey>) @j)"
+
+lemma Infra_injective_agreement:
+ "
+All Infra Veh  sskey #i. Commit(Infra,Veh, <'Infra','Veh',sskey>) @i
+                   ==> (Ex #j. Running(Veh,Infra,<'Veh','Infra',sskey>) @j  & j < i
+                  & not (Ex Infra2 Veh2 #i2. Commit(Infra2, Veh2,  <'Infra','Veh',sskey>) @i2 & not(#i2 = #i)))"
+
+
+lemma Veh_injective_agreement:
+   "
+       All Veh Infra sskey #i. Commit(Veh,Infra, <'Veh','Infra',sskey>) @i
+           ==> (Ex #j. Running(Infra,Veh,<'Infra','Veh',sskey>) @j  & j < i
+           & not (Ex Infra2 Veh2 #i2. Commit(Veh2,Infra2, <'Veh','Infra',sskey>) @i2 & not(#i2 = #i)))"
+
+
+lemma trace_exists: exists-trace
+"
+    Ex #i #j . End_V() @i & End_I() @j
+	& (All veh1 veh2 #n #k. Start_V(veh1) @n
+            & Start_V(veh2) @k ==> #n = #k)
+    & (All infra1 infra2 #n #k. Start_I(infra1) @n
+            & Start_I(infra2) @k ==> #n = #k)
+"
+
+
+end
