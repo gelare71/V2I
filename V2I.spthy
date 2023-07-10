@@ -98,12 +98,20 @@ lemma anonymity:
 All ID_v #i. Privacy(ID_v) @ i ==> not(Ex #j. K(ID_v)@j) "
 
 lemma Infra_sskey_secrecy:
-all-traces
+
 " All sskey #i. Secret1(sskey) @ i  ==> not(Ex #j. K(sskey)@j)| (Ex S #r. Reveal_S(S) @r  & r < i)
 "
 lemma Veh_sskey_secrecy:
-all-traces
+
 " All sskey #i . Secret2(sskey) @ i  ==> not(Ex #j. K(sskey)@j)|(Ex S #r. Reveal_S(S) @r  & r < i)"
+
+lemma secrecy_I:
+
+" All sskey #i. Secret1(sskey) @ i  ==> not(Ex #j. K(sskey)@j)"
+
+lemma secrecy_V:
+
+" All sskey #i . Secret2(sskey) @ i  ==> not(Ex #j. K(sskey)@j)"
 
 lemma Infra_aliveness:
 "
