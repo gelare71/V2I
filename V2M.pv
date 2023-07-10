@@ -1,0 +1,124 @@
+
+(* Channel definition *)
+free sh_S_Veh: channel [private]. (* private channel between the vehicle and server *)
+free sh_S_MD: channel [private]. (* private channel between the MobileDevice and server *)
+free ch: channel. (* a general public channel *)
+
+(* Private Terms *)
+free IDi : bitstring [private].
+free PWi : bitstring [private].
+free IDm : bitstring [private].
+free PWm : bitstring [private].
+free SK : bitstring [private].
+free X : bitstring [private].
+(* Public Term *)
+const P : bitstring.
+
+(* Functions or constructors *)
+fun xor(bitstring, bitstring) : bitstring. (* its destructor is xor *)
+fun h(bitstring) : bitstring.
+fun con(bitstring, bitstring) : bitstring.
+fun mul(bitstring, bitstring) : bitstring.
+fun SymEnc(bitstring, bitstring) : bitstring. (* its destructor is SymDec *)
+
+(* Destructors *)
+equation forall m1 : bitstring, m2 : bitstring; xor (xor(m1, m2), m2) = m1.
+reduc forall m : bitstring, key : bitstring; SymDec(SymEnc(m, key), key) = m.
+
+(* queries *)
+query attacker (new MRS).
+query attacker (new MRE).
+(* this query indicates the anonymity of user *)
+noninterf IDi.
+noninterf IDm.
+(* this query indicates the resistance of protocol against the "offline password guessing attack" *)
+weaksecret PWi.
+weaksecret PWm.
+(* the following queries indicate the resistance of protocol against the "replay attack and impersonation attack" *)
+query id : bitstring; inj-event (VehEnded(id)) ==> inj-event (VehStarted(id)).
+query id : bitstring; inj-event (MdEnded(id)) ==> inj-event (MdStarted(id)).
+
+(* Events *)
+event VehStarted(bitstring).
+event VehEnded(bitstring).
+event MdStarted(bitstring).
+event MdEnded(bitstring).
+
+let ProcessVeh =
+new ai : bitstring;
+let Ai = xor(h(con(IDi,PWi)), h(con(PWi,ai))) in
+let Bi = xor(h(con(PWi,ai)),xor(Ai, ai)) in
+out (sh_S_Veh, (Ai,Bi));
+in (sh_S_Veh, (Ei : bitstring, RIDVi : bitstring, Ci : bitstring, V : bitstring));
+!(event VehStarted(IDi);
+in (ch, (xEl : bitstring, xT1 : bitstring, xPl : bitstring, xMl : bitstring));
+let xai = xor(h(con(IDi,PWi)),xor(Ei,IDi)) in
+let xAi = xor(h(con(IDi,PWi)), h(con(PWi,xai))) in
+let xBi = xor(h(con(PWi,xai)),xor(xAi, xai)) in
+let xCi = h(con(IDi,con(xAi,xBi))) in
+if (xCi = Ci) then
+let xMRE = xor(xMl,xor(V,h(con(xT1,RIDVi)))) in
+let xRIDm = xor(xEl,h(con(xMRE,con(xT1,RIDVi)))) in
+let xxPl = h(con(xMRE,con(xRIDm,xT1))) in
+if (xxPl = xPl) then
+new MRS : bitstring;
+new T2 : bitstring;
+let delta = xor(MRS,h(con(RIDVi,con(xMRE,T2)))) in
+let nl = h(con(MRS,con(T2, xxPl))) in
+out (ch, (delta,T2,nl));
+event VehEnded(IDi);
+0).
+
+let ProcessMd=
+new dl : bitstring;
+let Ul = h(con(IDm,con(PWm,dl))) in
+out (sh_S_MD, (Ul));
+in (sh_S_MD, (Enc : bitstring, RIDm : bitstring, Xl : bitstring, Wl : bitstring));
+let Gl = xor(dl,xor(IDm,PWm))in
+let Hl = xor(Xl,h(con(PWm,dl)))in
+let Il = xor(Wl,h(xor(PWm,dl)))in
+!(event MdStarted(IDm);
+let xdl = xor(Gl,xor(IDm,PWm))in
+let xUl = h(con(IDm,con(PWm,xdl))) in
+let xtemp2 = xor(h(Ul),Il) in
+let xV = xor (xtemp2,h(xor(PWm,xdl))) in
+let xtemp3 = xor(h(Ul),Ul) in
+let xtemp4 = xor(xV,IDm) in
+let xXl = xor(xtemp3,xtemp4) in
+let xHl = xor(xXl,h(con(PWm,xdl))) in
+if (xHl = Hl) then
+let K = mul(xUl,P) in
+let xRIDVi = SymDec(Enc,K) in
+new MRE : bitstring;
+new T1 : bitstring;
+let Ml = xor(MRE,xor(xV,h(con(T1,xRIDVi)))) in
+let El = xor(RIDm,h(con(MRE,con(T1,xRIDVi)))) in
+let Pl = h(con(MRE,con(RIDm,T1))) in
+out (ch, (El,T1,Pl,Ml));
+in (ch, (xdelta : bitstring, xT2 : bitstring, xnl : bitstring));
+let xMRS = xor(xdelta,h(con(xRIDVi,con(MRE,xT2)))) in
+let xxnl = h(con(xMRS,con(xT2,Pl))) in
+if (xnl = xxnl) then
+event MdEnded(IDm);
+0).
+
+let ProcessS =
+new Ts : bitstring;
+let V = h(con(SK,con(Ts, X))) in
+in (sh_S_Veh, (Ai : bitstring, Bi : bitstring));
+new Tvi : bitstring;
+let RIDVi = h(con(SK,con(Tvi,IDi))) in
+let Ei = xor(Bi,IDi) in
+let Ci = h(con(IDi,con(Ai,Bi))) in
+out (sh_S_Veh, (Ei,RIDVi,Ci,V));
+in (sh_S_MD, (Ul: bitstring));
+new Tvm : bitstring;
+let RIDm = h(con(SK,con(Tvm,IDm))) in
+let Wl = xor(h(Ul),V) in
+let Xl = xor(IDm, xor(Ul,Wl)) in
+let K =  mul(Ul,P) in
+let Enc = SymEnc(RIDVi,K) in
+out(sh_S_MD, (Enc,RIDm,Wl,Xl));
+0.
+process
+( (!ProcessVeh) | (!ProcessMd) | (!ProcessS) )
