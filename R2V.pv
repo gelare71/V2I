@@ -1,0 +1,108 @@
+k]
+(* Channel definition *)
+free sh_S_Veh: channel [private]. (* private channel between the vehicle and server *)
+free sh_S_R: channel [private]. (* private channel between the RSU and server *)
+free ch: channel. (* a general public channel *)
+
+(* Private Terms *)
+free IDi : bitstring [private].
+free PWi : bitstring [private].
+free IDr : bitstring [private].
+free Krsu : bitstring [private].
+free SK : bitstring [private].
+free X : bitstring [private].
+
+(* Public Term *)
+const P : bitstring.
+
+(* Functions or constructors *)
+fun xor(bitstring, bitstring) : bitstring. (* its destructor is xor *)
+fun h(bitstring) : bitstring.
+fun con(bitstring, bitstring) : bitstring.
+fun mul(bitstring, bitstring) : bitstring.
+
+(* Destructors *)
+equation forall m1 : bitstring, m2 : bitstring; xor (xor(m1, m2), m2) = m1.
+
+(* queries *)
+query attacker (new MINF).
+(* this query indicates the anonymity of user *)
+noninterf IDi.
+(* this query indicates the resistance of protocol against the "offline password guessing attack" *)
+weaksecret PWi.
+(* the following queries indicate the resistance of protocol against the "replay attack and impersonation attack" *)
+query id : bitstring; inj-event (VehEnded(id)) ==> inj-event (VehStarted(id)).
+query id : bitstring; inj-event (REnded(id)) ==> inj-event (RStarted(id)).
+
+(* Events *)
+event VehStarted(bitstring).
+event VehEnded(bitstring).
+event RStarted(bitstring).
+event REnded(bitstring).
+
+let ProcessVeh =
+new ai : bitstring;
+new TIDVi : bitstring;
+let Ai = xor(h(con(IDi,PWi)), h(con(PWi,ai))) in
+let Bi = xor(h(con(PWi,ai)),xor(Ai, ai)) in
+out (sh_S_Veh, (Ai,Bi,TIDVi));
+in (sh_S_Veh, (Ei : bitstring, RIDVi : bitstring, Ci : bitstring, V : bitstring, RIDr : bitstring, Pubr : bitstring));
+!(event VehStarted(IDi);
+out (ch, TIDVi);
+in (ch, (xRIDr : bitstring, xT1 : bitstring, xQi : bitstring, xUi : bitstring, xWi : bitstring));
+let xai = xor(h(con(IDi,PWi)),xor(Ei,IDi)) in
+let xAi = xor(h(con(IDi,PWi)), h(con(PWi,xai))) in
+let xBi = xor(h(con(PWi,xai)),xor(xAi, xai)) in
+let xCi = h(con(IDi,con(xAi,xBi))) in
+if (xCi = Ci) then
+let xMINF = xor(xQi,xor(V,h(con(RIDVi,xT1)))) in
+let xYi = xor(xUi,xor(h(con(xT1,Pubr)),xMINF)) in
+let xxWi = mul(xYi,Pubr) in
+if (xxWi = xWi) then
+new TIDVni : bitstring;
+new T3 : bitstring;
+let T = xor(TIDVni,h(con(TIDVi,con(xMINF,T3)))) in
+let Xi = h(con(TIDVni,T3)) in
+out (ch, (T,Xi,T3));
+event VehEnded(IDi);
+0).
+
+let ProcessR =
+in (sh_S_R, (RIDVi : bitstring, V: bitstring, RIDr : bitstring, TIDVi: bitstring));
+!(event RStarted(IDr);
+in (ch, xTIDVi : bitstring);
+let SKr = xor(V, h(con(IDr,Krsu))) in
+let Pubr = mul(SKr,P) in
+new T1 : bitstring;
+let Yi = h(con(Krsu,con(T1,SKr))) in
+new MINF : bitstring;
+let Qi = xor(MINF,xor(V,h(con(RIDVi, T1)))) in
+let Ui = xor(Yi,xor(h(con(T1,Pubr)),MINF)) in
+let temp4 = mul(SKr,P) in
+let Wi = mul(Yi, temp4) in
+out (ch, (RIDr,T1,Qi,Ui,Wi));
+in (ch, (xT : bitstring, xXi : bitstring, xT3 : bitstring));
+let xTIDVni = xor(xT,h(con(TIDVi,con(MINF,xT3)))) in
+let xxXi = h(con(xTIDVni,xT3)) in
+if (xXi = xxXi) then
+event REnded(IDr);
+0).
+
+let ProcessS =
+new Ts : bitstring;
+let V = h(con(SK,con(Ts, X))) in
+in (sh_S_Veh, (Ai : bitstring, Bi : bitstring, TIDVi: bitstring));
+new Tvi : bitstring;
+new Tr : bitstring;
+let RIDVi = h(con(SK,con(Tvi,IDi))) in
+let RIDr = h(con(SK,con(Tr,IDr))) in
+let Ei = xor(Bi,IDi) in
+let Ci = h(con(IDi,con(Ai,Bi))) in
+let SKr = xor(V, h(con(IDr,Krsu))) in
+let Pubr = mul(SKr,P) in
+out (sh_S_Veh, (Ei,RIDVi,Ci,V,RIDr,Pubr));
+out(sh_S_R, (RIDVi,V,RIDr,TIDVi));
+out(ch, Pubr);
+0.
+process
+( (!ProcessVeh) | (!ProcessR) | (!ProcessS) )
