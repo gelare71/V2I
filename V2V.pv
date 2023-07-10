@@ -1,0 +1,96 @@
+
+(* Channel definition *)
+free sh_S_A: channel [private]. (* private channel between the vehicleA and server *)
+free sh_S_B: channel [private]. (* private channel between the VehicleB and server *)
+free ch: channel. (* a general public channel *)
+
+(* Private Terms *)
+free IDa : bitstring [private].
+free PWa : bitstring [private].
+free IDb : bitstring [private].
+free PWb : bitstring [private].
+free SK : bitstring [private].
+free X : bitstring [private].
+
+
+(* Public Term *)
+const P : bitstring.
+
+(* Functions or constructors *)
+fun xor(bitstring, bitstring) : bitstring. (* its destructor is xor *)
+fun h(bitstring) : bitstring.
+fun con(bitstring, bitstring) : bitstring.
+fun mul(bitstring, bitstring) : bitstring.
+
+(* Destructors *)
+equation forall m1 : bitstring, m2 : bitstring; xor (xor(m1, m2), m2) = m1.
+
+(* queries *)
+query attacker (new MINF).
+(* this query indicates the anonymity of user *)
+noninterf IDa.
+noninterf IDb.
+(* this query indicates the resistance of protocol against the "offline password guessing attack" *)
+weaksecret PWa.
+weaksecret PWb.
+(* the following queries indicate the resistance of protocol against the "replay attack and impersonation attack" *)
+
+
+let ProcessVehA =
+new a : bitstring;
+new TIDVa : bitstring;
+let Aa = xor(h(con(IDa,PWa)), h(con(PWa,a))) in
+let Ba = xor(h(con(PWa,a)),xor(Aa, a)) in
+out (sh_S_A, (Aa,Ba, TIDVa));
+in (sh_S_A, (Ea : bitstring, RIDVa : bitstring, Ca : bitstring, V : bitstring, Pub : bitstring));
+let xa = xor(h(con(IDa,PWa)),xor(Ea,IDa)) in
+let xAa = xor(h(con(IDa,PWa)), h(con(PWa,xa))) in
+let xBa = xor(h(con(PWa,xa)),xor(xAa, xa)) in
+let xCa = h(con(IDa,con(xAa,xBa))) in
+if (xCa = Ca) then
+new MINF : bitstring;
+new T1 : bitstring;
+new r : bitstring;
+let R = mul(r,P) in
+let M = mul(r,Pub) in
+let alpha = xor(h(con(M,con(T1,MINF))),RIDVa) in
+let Beta = xor(MINF,xor(h(con(TIDVa,con(T1,alpha))),V)) in
+let Yi = h(con(alpha,con(MINF,con(R,T1)))) in
+out (ch, (TIDVa,T1,R,Yi,alpha,Beta));
+0.
+
+let ProcessVehB =
+new b : bitstring;
+let Ab = xor(h(con(IDb,PWb)), h(con(PWb,b))) in
+let Bb = xor(h(con(PWb,b)),xor(Ab, b)) in
+out (sh_S_B, (Ab,Bb));
+in (sh_S_B, (Eb : bitstring, Cb : bitstring, V : bitstring));
+in (ch, (xTIDVa : bitstring, xT1: bitstring, xR: bitstring, xYi: bitstring, xalpha: bitstring, xBeta: bitstring));
+let xb = xor(h(con(IDb,PWb)),xor(Eb,IDb)) in
+let xAb = xor(h(con(IDb,PWb)), h(con(PWb,xb))) in
+let xBb = xor(h(con(PWb,xb)),xor(xAb, xb)) in
+let xCb = h(con(IDb,con(xAb,xBb))) in
+if (xCb = Cb) then
+let xMINF = xor(xBeta,xor(h(con(xTIDVa,con(xT1,xalpha))),V)) in
+let xxYi = h(con(xalpha,con(xMINF,con(xR,xT1)))) in
+if (xYi = xxYi) then
+0.
+
+let ProcessS =
+new Ts : bitstring;
+let V = h(con(SK,con(Ts, X))) in
+in (sh_S_A, (Aa : bitstring, Ba : bitstring, TIDVa : bitstring));
+new Tva : bitstring;
+let RIDVa = h(con(SK,con(Tva,IDa))) in
+let Ea = xor(Ba,IDa) in
+let Ca = h(con(IDa,con(Aa,Ba))) in
+let Pub = mul(SK,P) in
+out (sh_S_A, (Ea,RIDVa,Ca,V,Pub));
+in (sh_S_B, (Ab : bitstring, Bb : bitstring));
+let Eb = xor(Bb,IDb) in
+let Cb = h(con(IDb,con(Ab,Bb))) in
+out (sh_S_B, (Eb,Cb,V));
+out(ch, Pub);
+0.
+process
+( (!ProcessVehA) | (!ProcessVehB) | (!ProcessS) )
