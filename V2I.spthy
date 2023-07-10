@@ -65,10 +65,10 @@ m_1 = <T, Q, t2>
 
  rule recv_infra_2:
  let
- m_3 = <X, t3>
+ m_2 = <X, t3>
  X_prime = h(<SK_I, t3>)
  in
- [In(m_3), I_state_2($Infra, M_RE_prime, SK_I, $Veh)]
+ [In(m_2), I_state_2($Infra, M_RE_prime, SK_I, $Veh)]
  --[Eq(X, X_prime), Commit($Infra, $Veh, <'Infra','Veh',SK_I>), End_I()]->
  []
 
