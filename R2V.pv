@@ -1,4 +1,4 @@
-k]
+
 (* Channel definition *)
 free sh_S_Veh: channel [private]. (* private channel between the vehicle and server *)
 free sh_S_R: channel [private]. (* private channel between the RSU and server *)
