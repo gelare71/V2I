@@ -1,0 +1,106 @@
+
+(* Channel definition *)
+free sh_S_Veh: channel [private]. (* private channel between the vehicle and server *)
+free sh_S_I: channel [private]. (* private channel between the InfraStructure and server *)
+free ch: channel. (* a general public channel *)
+
+(* Private Terms *)
+free IDi : bitstring [private].
+free PWi : bitstring [private].
+free SK : bitstring [private].
+free X : bitstring [private].
+free Kinfra : bitstring [private].
+free SSkey_v : bitstring [private].
+free SSkey_i : bitstring [private].
+
+
+(* Functions or constructors *)
+fun xor(bitstring, bitstring) : bitstring. (* its destructor is xor *)
+fun h(bitstring) : bitstring.
+fun con(bitstring, bitstring) : bitstring.
+fun SymEnc(bitstring, bitstring) : bitstring. (* its destructor is SymDec *)
+
+(* Destructors *)
+equation forall m1 : bitstring, m2 : bitstring; xor (xor(m1, m2), m2) = m1.
+reduc forall m : bitstring, key : bitstring; SymDec(SymEnc(m, key), key) = m.
+
+(* queries *)
+
+query attacker (new MRE).
+query attacker (SSkey_v).
+query attacker (SSkey_i).
+
+(* Events *)
+event VehStarted.
+event VehEnded.
+event IStarted.
+event IEnded.
+
+let ProcessVeh =
+new ai : bitstring;
+new TIDVi : bitstring;
+let Ai = xor(h(con(IDi,PWi)), h(con(PWi,ai))) in
+let Bi = xor(h(con(PWi,ai)),xor(Ai, ai)) in
+out (sh_S_Veh, (TIDVi,Ai,Bi));
+in (sh_S_Veh, (Ei : bitstring, RIDVi : bitstring, Ci : bitstring, V : bitstring));
+!(event VehStarted;
+let xai = xor(h(con(IDi,PWi)),xor(Ei,IDi)) in
+let xAi = xor(h(con(IDi,PWi)), h(con(PWi,xai))) in
+let xBi = xor(h(con(PWi,xai)),xor(xAi, xai)) in
+let xCi = h(con(IDi,con(xAi,xBi))) in
+if (xCi = Ci) then
+new MRE : bitstring;
+new T1 : bitstring;
+let Ii = xor(MRE,xor(V,h(con(T1,RIDVi)))) in
+let Ki = h(con(Ii,con(MRE,con(T1,TIDVi)))) in
+out (ch, (TIDVi,T1,Ii,Ki));
+in (ch, (xTi : bitstring, xQi : bitstring, xT2 : bitstring));
+let Key = xor(xTi, h(xor(V, MRE))) in
+let xxQi = h(con(MRE,con(Key,xT2))) in
+if (xxQi = xQi) then
+let SSkey_v_i = h(con(RIDVi,con(MRE,Key))) in
+out (ch, SymEnc(SSkey_v,SSkey_v_i));
+new TIDVni : bitstring;
+new T3 : bitstring;
+let T = xor(TIDVni,h(con(TIDVi,con(SSkey_v_i,T3)))) in
+let Xi = h(con(TIDVni,con(SSkey_v_i,T3))) in
+out (ch, (T,Xi,T3));
+event VehEnded;
+0).
+
+let ProcessI =
+in (sh_S_I, (RIDVi : bitstring, TIDVi: bitstring, V: bitstring, M : bitstring));
+!(event IStarted;
+in (ch, (xTIDVi : bitstring, xT1 : bitstring, xIi : bitstring, xKi : bitstring));
+let xMRE = xor(xIi,xor(V,h(con(xT1,RIDVi)))) in
+let xxKi = h(con(xIi,con(xMRE,con(xT1,xTIDVi)))) in
+if (xKi = xxKi) then
+new T2 : bitstring;
+let Ti = xor(h(con(T2,con(M,RIDVi))),h(xor(V,xMRE))) in
+let Qi = h(con(xMRE,con(h(con(T2,con(M,RIDVi))), RIDVi))) in
+let SSkey = h(con(RIDVi,con(xMRE, h(con(T2,con(M,RIDVi)))))) in
+out (ch, SymEnc(SSkey_i,SSkey));
+out (ch, (Ti,T2,Qi));
+in (ch, (xT : bitstring, xXi : bitstring, xT3 : bitstring));
+let xTIDVni = xor(xT,h(con(TIDVi,con(SSkey,xT3)))) in
+let xxXi = h(con(xTIDVni,con(SSkey,xT3))) in
+if (xXi = xxXi) then
+event IEnded;
+0).
+
+let ProcessS =
+new Ts : bitstring;
+let V = h(con(SK,con(Ts, X))) in
+in (sh_S_Veh, (TIDVi : bitstring, Ai : bitstring, Bi : bitstring));
+new Tvi : bitstring;
+let RIDVi = h(con(SK,con(Tvi,IDi))) in
+let Ei = xor(Bi,IDi) in
+let Ci = h(con(IDi,con(Ai,Bi))) in
+out (sh_S_Veh, (Ei,RIDVi,Ci,V));
+new Tinfra : bitstring;
+let M = h(con(Kinfra,Tinfra)) in
+out(sh_S_I, (RIDVi,TIDVi,M,V));
+out(ch, V);
+0.
+process
+( (!ProcessVeh) | (!ProcessI) | (!ProcessS) )
