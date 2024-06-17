@@ -77,6 +77,7 @@ in (sh_S_MD, (Enc : bitstring, RIDm : bitstring, Xl : bitstring, Wl : bitstring)
 let Gl = xor(dl,xor(IDm,PWm))in
 let Hl = xor(Xl,h(con(PWm,dl)))in
 let Il = xor(Wl,h(xor(PWm,dl)))in
+let Jl = xor(RIDm,h(con(IDm,con(PWm,dl))))in
 !(event MdStarted(IDm);
 let xdl = xor(Gl,xor(IDm,PWm))in
 let xUl = h(con(IDm,con(PWm,xdl))) in
@@ -89,6 +90,7 @@ let xHl = xor(xXl,h(con(PWm,xdl))) in
 if (xHl = Hl) then
 let K = mul(xUl,P) in
 let xRIDVi = SymDec(Enc,K) in
+let RIDm = xor(Jl,h(con(IDm,con(PWm,xdl))))in
 new MRE : bitstring;
 new T1 : bitstring;
 let Ml = xor(MRE,xor(xV,h(con(T1,xRIDVi)))) in
