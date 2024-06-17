@@ -1,5 +1,5 @@
 
-(* Channel definition *)
+* Channel definition *)
 free sh_S_A: channel [private]. (* private channel between the vehicleA and server *)
 free sh_S_B: channel [private]. (* private channel between the VehicleB and server *)
 free ch: channel. (* a general public channel *)
@@ -54,9 +54,10 @@ new r : bitstring;
 let R = mul(r,P) in
 let M = mul(r,Pub) in
 let alpha = xor(h(con(M,con(T1,MINF))),RIDVa) in
-let Beta = xor(MINF,xor(h(con(TIDVa,con(T1,alpha))),V)) in
-let Yi = h(con(alpha,con(MINF,con(R,T1)))) in
-out (ch, (TIDVa,T1,R,Yi,alpha,Beta));
+let Beta = xor(h(con(TIDVa,T1)),h(con(RIDVa,con(xBa,T1)))) in
+let Ci = xor(MINF,xor(h(con(RIDVa,con(xBa,T1))),V)) in
+let Yi = h(con(alpha,con(MINF,con(R,con(Beta,T1))))) in
+out (ch, (TIDVa,T1,R,Yi,alpha,Beta,Ci));
 0.
 
 let ProcessVehB =
@@ -65,14 +66,14 @@ let Ab = xor(h(con(IDb,PWb)), h(con(PWb,b))) in
 let Bb = xor(h(con(PWb,b)),xor(Ab, b)) in
 out (sh_S_B, (Ab,Bb));
 in (sh_S_B, (Eb : bitstring, Cb : bitstring, V : bitstring));
-in (ch, (xTIDVa : bitstring, xT1: bitstring, xR: bitstring, xYi: bitstring, xalpha: bitstring, xBeta: bitstring));
+in (ch, (xTIDVa : bitstring, xT1: bitstring, xR: bitstring, xYi: bitstring, xalpha: bitstring, xBeta: bitstring, xCi: bitstring));
 let xb = xor(h(con(IDb,PWb)),xor(Eb,IDb)) in
 let xAb = xor(h(con(IDb,PWb)), h(con(PWb,xb))) in
 let xBb = xor(h(con(PWb,xb)),xor(xAb, xb)) in
 let xCb = h(con(IDb,con(xAb,xBb))) in
 if (xCb = Cb) then
-let xMINF = xor(xBeta,xor(h(con(xTIDVa,con(xT1,xalpha))),V)) in
-let xxYi = h(con(xalpha,con(xMINF,con(xR,xT1)))) in
+let xMINF = xor(xBeta,xor(xCi,xor(h(con(xTIDVa,xT1)),V))) in
+let xxYi = h(con(xalpha,con(xMINF,con(xR,con(xBeta,xT1))))) in
 if (xYi = xxYi) then
 0.
 
