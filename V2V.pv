@@ -1,5 +1,5 @@
 
-* Channel definition *)
+(* Channel definition *)
 free sh_S_A: channel [private]. (* private channel between the vehicleA and server *)
 free sh_S_B: channel [private]. (* private channel between the VehicleB and server *)
 free ch: channel. (* a general public channel *)
